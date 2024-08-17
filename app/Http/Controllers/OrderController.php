@@ -5,41 +5,18 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Requests\UpdateOrderRequest;
+use App\Models\Customer;
 use App\Models\Meal;
 use App\Models\OrderDetail;
 use App\Models\Reservation;
+use App\Models\Table;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use PhpParser\Node\Expr\Cast\Array_;
 
 class OrderController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function index()
-    {
-        //
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \App\Http\Requests\StoreOrderRequest  $request
-     * @return \Illuminate\Http\Response
-     */
     public function store(Request $request)
     {
         $request_data = $request->all();
@@ -54,7 +31,7 @@ class OrderController extends Controller
             $order->table_id = $reservation->table_id;
             $order->customer_id = $reservation->customer_id;
             $order->user_id = $request_data['user_id'];
-            $order->date = Carbon::createFromFormat('Y-m-d H:i:s',$request_data['date']);
+            $order->date = Carbon::now()->format('Y-m-d H:i:s');
             $order->save();
 
             foreach($meals as $one_meal){
@@ -91,48 +68,51 @@ class OrderController extends Controller
         return json_encode($res);
     }
     
-    /**
-     * Display the specified resource.
-     *
-     * @param  \App\Models\Order  $order
-     * @return \Illuminate\Http\Response
-     */
-    public function show(Order $order)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  \App\Models\Order  $order
-     * @return \Illuminate\Http\Response
-     */
-    public function edit(Order $order)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \App\Http\Requests\UpdateOrderRequest  $request
-     * @param  \App\Models\Order  $order
-     * @return \Illuminate\Http\Response
-     */
-    public function update(UpdateOrderRequest $request, Order $order)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  \App\Models\Order  $order
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy(Order $order)
-    {
-        //
+    public function checkout(Request $request){
+        $request_data = $request->all();
+        $auth = Auth::user();
+        $order = Order::find($request_data['order_id'])->where('user_id',$auth->id)->where('status','LIKE','unpaid')->first();
+        if($order){
+            $table = Table::find($order->table_id);
+            $customer = Customer::find($order->customer_id);
+        
+            if (!$order) {
+                return response()->json(['message' => 'No order found'], 404);
+            }
+        
+            $totalAmount = $order->total;
+            $taxAmount = $totalAmount * (14 / 100);
+            $serviceCharge1 = $totalAmount * (20 / 100);
+            $serviceCharge2 = $totalAmount * (15 / 100);
+    
+            $serviceCharge = $request_data['checkout_type'] == 1 ? $serviceCharge1 : $serviceCharge2;
+            $finalAmount = $request_data['checkout_type'] == 1 ? $totalAmount + $taxAmount + $serviceCharge : $totalAmount + $serviceCharge ;
+    
+            $order->update([
+                'paid' => $finalAmount,
+                'total' => $finalAmount,
+                'status' => 'paid',
+            ]);
+        
+            $invoiceData = [
+                'table' => $table->id,
+                'customer' => $customer->name,
+                'subtotal' => number_format($totalAmount, 2),
+                'tax' => $request_data['checkout_type'] == 1 ? number_format($taxAmount, 2) : null,
+                'service_charge' => number_format($serviceCharge, 2),
+                'total' => number_format($finalAmount, 2),
+                'status' => 'Paid',
+            ];
+    
+            return response()->json([
+                'message' => 'Checkout completed successfully.',
+                'invoice' => $invoiceData,
+            ]);
+        }else{
+            return response()->json([
+                'message' => 'There is no unpaid order with this number.',
+                'invoice' => [],
+            ]);
+        }
     }
 }

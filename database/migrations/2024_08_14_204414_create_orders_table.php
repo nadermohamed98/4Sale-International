@@ -21,6 +21,7 @@ class CreateOrdersTable extends Migration
             $table->unsignedBigInteger('user_id');
             $table->float('total')->default(0);
             $table->float('paid')->default(0);
+            $table->string('status')->default('unpaid');
             $table->dateTime('date');
 
             $table->foreign('table_id')
