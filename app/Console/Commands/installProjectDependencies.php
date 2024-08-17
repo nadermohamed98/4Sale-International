@@ -30,20 +30,6 @@ class installProjectDependencies extends Command
     public function __construct()
     {
         parent::__construct();
-
-        $this->runProcess('docker-compose build app');
-        $this->runProcess('docker-compose up -d');
-        $this->runProcess('docker exec -i db mysql -u root -e "CREATE DATABASE IF NOT EXISTS onsaleinter;"');
-        $this->runProcess('composer install');
-        $this->runProcess('composer update');
-        $this->runProcess('cp .env.example .env');
-        $this->runProcess('php artisan migrate --seed');
-        $this->runProcess('php artisan config:cache');
-        $this->runProcess('php artisan config:clear');
-        $this->runProcess('php artisan cache:clear');
-        $this->runProcess('php artisan key:generate');
-
-        $this->info('All commands executed successfully!');
     }
     
     /**
@@ -69,9 +55,23 @@ class installProjectDependencies extends Command
      * Execute the console command.
      *
      * @return int
-     */
+    */
     public function handle()
     {
+        $this->runProcess('docker-compose build app');
+        $this->runProcess('docker-compose up -d');
+        $this->runProcess('docker exec -i db mysql -u root -e "CREATE DATABASE IF NOT EXISTS onsaleinter;"');
+        $this->runProcess('composer install');
+        $this->runProcess('composer update');
+        $this->runProcess('cp .env.example .env');
+        $this->runProcess('php artisan migrate --seed');
+        $this->runProcess('php artisan config:cache');
+        $this->runProcess('php artisan config:clear');
+        $this->runProcess('php artisan cache:clear');
+        $this->runProcess('php artisan key:generate');
+
+        $this->info('All commands executed successfully!');
+
         return 0;
     }
 }
